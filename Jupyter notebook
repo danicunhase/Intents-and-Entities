@@ -1,0 +1,103 @@
+!pip install watson_developer_cloud
+
+import watson_developer_cloud
+from watson_developer_cloud import AssistantV1
+import pandas as pd
+from termcolor import colored, cprint
+import nltk
+
+#OBRAS QAS:
+CTE_WORKSPACE = 'WORKSPACE'
+assistant = watson_developer_cloud.AssistantV1(
+    username='USERNAME',
+    password='PASSWORD',
+    version='2018-09-20'
+) 
+workspace = CTE_WORKSPACE
+
+original_workspace = assistant.get_workspace(workspace_id=workspace, export=True).get_result()
+
+
+
+#ANALYSIS OF REPEATED EXAMPLES:
+
+# Variable declaration
+list_all_intents = original_workspace['intents']
+list_examples = []
+list_intent_names = []
+intent_information= pd.DataFrame(columns=['names', 'size'])
+
+# Mounts the data frame
+for idx, intent in enumerate(list_all_intents):
+    for example in intent['examples']:
+        list_examples.append(example['text'])
+        list_intent_names.append(intent['intent'])
+    intent_information.loc[idx] = pd.Series({'names':intent['intent'], 'size': len(intent['examples'])})
+
+intent_information = pd.DataFrame({
+    'Examples': list_examples,
+    'Intent': list_intent_names
+}, columns=['Examples','Intent'])
+
+
+print(colored("\nAnalysis repeated examples in training set:\n", attrs=['bold']))
+
+# Mounts examples frequency
+examples_fdist = nltk.FreqDist(intent_information['Examples'])        
+
+# Select examples with more than one occurrence
+analysis = [x for idx,x in intent_information.sort_values("Examples").iterrows() if x['Examples'] in [k for k,v in examples_fdist.items() if v > 1]]
+for y in analysis:
+    print(y['Examples'] + ' # ' + y['Intent'])
+    
+if len(analysis) <= 1:
+    print(colored("No repeated examples. Congrats!", 'green'))
+    
+    
+#ANALYSIS OF REPEATED ENTITIES, VALUES AND SYNONYMS:
+
+# Variable declaration
+list_all_entities=original_workspace['entities']
+list_values_others=[]
+list_entities_names=[]
+list_synonyms=[]
+list_values=[]
+
+# Mounts the lists
+for idx, entity in enumerate(list_all_entities):
+    list_entities_names.append(entity['entity'])
+    for value in entity['values']:
+        if value['type']=='synonyms' in value:
+            list_synonyms.append(value['synonyms'])
+            list_values.append(value['value'])
+        else:
+            list_values_others.append(value['value'])
+
+print(colored("\nAnalysis of repeated entities, values and synonyms in training set:\n", attrs=['bold']))
+
+# Mounts entities,values and synonyms frequency
+x=0
+w=0
+final_list=[]
+i=len(list_synonyms)
+
+while x < i:
+    j=len(list_synonyms[x])
+    #print(j)
+    while w<j:
+        final_list.append(list_synonyms[x][w])
+        w=w+1
+    w=0
+    x=x+1
+list_analysis=final_list+list_entities_names+list_values_others+list_values
+
+# Select entities,values and synonyms with more than one occurrence
+analysis_entities = nltk.FreqDist(list_analysis)
+flag = False
+
+for k,v in sorted(analysis_entities.items(), key=lambda t:t[-1], reverse=True):
+    if v > 1:
+        flag = True
+        print("[" + str(v) + "] > ",k)
+    if flag is False:
+        print(colored("No repeated entities names, values or synonyms. Congrats!", 'green'))
