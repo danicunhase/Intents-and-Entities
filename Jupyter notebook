@@ -6,7 +6,7 @@ import pandas as pd
 from termcolor import colored, cprint
 import nltk
 
-#OBRAS QAS:
+#CREDENTIALS
 CTE_WORKSPACE = 'WORKSPACE'
 assistant = watson_developer_cloud.AssistantV1(
     username='USERNAME',
